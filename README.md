@@ -3,16 +3,16 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/breuk-logo-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/breuk-logo-light.png">
-  <img src="assets/breuk-logo-light.png" alt="Breuk — Corporate Lawyers" width="420">
+  <img src="assets/breuk-logo-light.png" alt="Breuk — Corporate Lawyers" width="100%">
 </picture>
 
 # Breuk Agent
 
 **The AI legal agent for your terminal, by [Breuk Legal](https://breuklegal.com).**
 
-[![Latest release](https://img.shields.io/github/v/release/Breuk-Legal/breuklegal-agent?label=release&color=8b7ce8)](https://github.com/Breuk-Legal/breuklegal-agent/releases/latest)
-[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-1e1b2e)](#manual-download)
-[![License](https://img.shields.io/badge/license-proprietary-8b7ce8)](LICENSE.md)
+[![Latest release](assets/badge-release.svg)](https://github.com/Breuk-Legal/breuklegal-agent/releases/latest)
+[![Platforms](assets/badge-platforms.svg)](#manual-download)
+[![License](assets/badge-license.svg)](LICENSE.md)
 
 </div>
 
