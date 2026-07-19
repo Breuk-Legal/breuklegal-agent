@@ -1,51 +1,55 @@
 # Breuk (CLI)
 
-Agente de IA legal para la terminal, de [Breuk Legal](https://breuklegal.com).
+The terminal-based AI legal agent by [Breuk Legal](https://breuklegal.com).
 
-Este repositorio distribuye los binarios oficiales de Breuk (CLI): [releases](https://github.com/Breuk-Legal/breuklegal-agent/releases), instalación y [changelog](CHANGELOG.md). El código fuente del producto es propietario y no vive aquí. Descargar es libre; para ejecutar Breuk (CLI) necesitas una cuenta Breuk con subscripción activa.
+This repository distributes the official Breuk (CLI) binaries: [releases](https://github.com/Breuk-Legal/breuklegal-agent/releases), installation and the [changelog](CHANGELOG.md). The product's source code is proprietary and does not live here. Downloading is free; running Breuk (CLI) requires a Breuk account with an active subscription.
 
-## Instalación
+## Installation
 
-### Linux y macOS
+### Linux and macOS
 
 ```sh
 curl -fsSL https://breuklegal.com/install.sh | bash
 ```
 
-Instala la última versión en `~/.breuk/bin/breuk` y agrega el directorio a tu `PATH`.
+Installs the latest version into `~/.breuk/bin/breuk` and adds the directory to your `PATH`.
 
-Para instalar una versión específica:
+To install a specific version:
 
 ```sh
-curl -fsSL https://breuklegal.com/install.sh | VERSION=0.1.0 bash
+curl -fsSL https://breuklegal.com/install.sh | VERSION=0.1.1 bash
 ```
 
 ### Windows
 
-Descarga el `.zip` de tu arquitectura desde la [última release](https://github.com/Breuk-Legal/breuklegal-agent/releases/latest), descomprímelo y ejecuta `breuk.exe` desde tu terminal.
+Download the `.zip` for your architecture from the [latest release](https://github.com/Breuk-Legal/breuklegal-agent/releases/latest), extract it and run `breuk.exe` from your terminal.
 
-### Descarga manual
+### Manual download
 
-Cada release publica:
+Every release publishes:
 
-| Artefacto | Plataforma |
+| Artifact | Platform |
 |---|---|
 | `breuk-linux-x86_64.tar.gz` / `breuk-linux-arm64.tar.gz` | Linux |
 | `breuk-mac-x86_64.tar.gz` / `breuk-mac-arm64.tar.gz` | macOS |
 | `breuk-windows-x86_64.zip` / `breuk-windows-arm64.zip` | Windows |
-| `breuk-linux-{amd64,arm64}.deb` / `.rpm` | Paquetes Linux |
-| `checksums.txt` | SHA-256 de todos los artefactos |
+| `breuk-linux-{amd64,arm64}.deb` / `.rpm` | Linux packages |
+| `checksums.txt` | SHA-256 of every artifact |
 
-Verifica la integridad con `sha256sum -c` contra `checksums.txt`.
+Verify integrity with `sha256sum -c` against `checksums.txt`.
 
-## Primeros pasos
+## Getting started
 
 ```sh
 breuk
 ```
 
-Al primer arranque, Breuk (CLI) te guía para autenticarte con tu cuenta Breuk.
+On first run, Breuk (CLI) walks you through signing in with your Breuk account.
 
-## Soporte
+## License
 
-Escríbenos a través de [breuklegal.com](https://breuklegal.com).
+The binaries distributed here are proprietary software. See [LICENSE.md](LICENSE.md).
+
+## Support
+
+Reach us through [breuklegal.com](https://breuklegal.com).
