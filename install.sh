@@ -51,6 +51,46 @@ case "$filename" in
     ;;
 esac
 
+# Desde I-4, breuk es una app de escritorio Wails, no un binario Go puro:
+# necesita WebKitGTK instalado en el sistema para arrancar (el TUI de antes
+# no tenía esta dependencia). Sin esto el binario se descarga bien pero
+# crashea al primer breuk que el usuario corra — mejor fallar acá, con
+# instrucciones, que dejar que eso pase (I-4 T13).
+if [[ "$os" == "linux" ]]; then
+    # ldconfig vive en /sbin, que no siempre está en el PATH de un usuario sin
+    # privilegios. Buscarlo ahí a mano evita el falso negativo que bloquearía
+    # la instalación a alguien que sí tiene WebKitGTK.
+    ldconfig_bin=$(command -v ldconfig || true)
+    if [[ -z "$ldconfig_bin" ]]; then
+        for candidate in /sbin/ldconfig /usr/sbin/ldconfig; do
+            if [[ -x "$candidate" ]]; then
+                ldconfig_bin="$candidate"
+                break
+            fi
+        done
+    fi
+
+    webkit_libs=""
+    if [[ -n "$ldconfig_bin" ]]; then
+        webkit_libs=$("$ldconfig_bin" -p 2>/dev/null || true)
+    fi
+
+    # Ante la duda (sin ldconfig, o con la caché ilegible) se avisa y se sigue:
+    # un falso negativo acá le negaría la instalación a alguien que la tiene.
+    # Solo se aborta cuando se pudo comprobar que la librería falta de verdad.
+    if [[ -z "$webkit_libs" ]]; then
+        print_message warning "No se pudo verificar WebKitGTK en este sistema."
+        print_message info "Si breuk no arranca, instalá libwebkit2gtk-4.1 con tu gestor de paquetes."
+    elif ! grep -qi "libwebkit2gtk-4\.1\.so" <<<"$webkit_libs"; then
+        print_message error "Falta WebKitGTK, necesario para ejecutar breuk."
+        print_message info "Instalalo con el gestor de paquetes de tu distro:"
+        print_message info "  Debian/Ubuntu:  sudo apt install libwebkit2gtk-4.1-0"
+        print_message info "  Fedora:         sudo dnf install webkit2gtk4.1"
+        print_message info "  Arch:           sudo pacman -S webkit2gtk-4.1"
+        exit 1
+    fi
+fi
+
 INSTALL_DIR=$HOME/.breuk/bin
 mkdir -p "$INSTALL_DIR"
 
