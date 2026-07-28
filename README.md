@@ -24,23 +24,47 @@ This repository distributes the official Breuk Agent binaries: [releases](https:
 
 ## Installation
 
-### Linux and macOS
+Open a terminal and run one command. No administrator privileges required — the installer verifies the SHA-256 checksum, places the binary in your home directory and adds it to your `PATH`.
+
+### Linux
 
 ```sh
 curl -fsSL https://breuklegal.com/install.sh | bash
 ```
 
-Installs the latest version into `~/.breuk/bin/breuk` and adds the directory to your `PATH`.
-
-To install a specific version:
+### macOS
 
 ```sh
-curl -fsSL https://breuklegal.com/install.sh | VERSION=0.1.2 bash
+curl -fsSL https://breuklegal.com/install.sh | bash
 ```
 
 ### Windows
 
-Download the `.zip` for your architecture from the [latest release](https://github.com/Breuk-Legal/breuklegal-agent/releases/latest), extract it and run `breuk.exe` from your terminal.
+In PowerShell:
+
+```powershell
+irm https://breuklegal.com/install.ps1 | iex
+```
+
+### Requirements
+
+| Platform | Supported | Also needed |
+|---|---|---|
+| Linux | x86_64 | WebKitGTK (`libwebkit2gtk-4.1`) — the installer checks for it and tells you how to install it |
+| macOS | Apple Silicon (M1 or later) | Nothing; the system webview is built in |
+| Windows | 10 / 11, x86_64 | WebView2 Runtime — preinstalled on Windows 11 and on any machine with an up-to-date Edge |
+
+Breuk Agent is a desktop application, so it needs your system's webview. Intel Macs, and arm64 on Linux and Windows, are not published yet.
+
+### A specific version
+
+```sh
+curl -fsSL https://breuklegal.com/install.sh | VERSION=0.1.21 bash
+```
+
+```powershell
+$env:VERSION = "0.1.21"; irm https://breuklegal.com/install.ps1 | iex
+```
 
 ### Manual download
 
@@ -48,21 +72,31 @@ Every release publishes:
 
 | Artifact | Platform |
 |---|---|
-| `breuk-linux-x86_64.tar.gz` / `breuk-linux-arm64.tar.gz` | Linux |
-| `breuk-mac-x86_64.tar.gz` / `breuk-mac-arm64.tar.gz` | macOS |
-| `breuk-windows-x86_64.zip` / `breuk-windows-arm64.zip` | Windows |
-| `breuk-linux-{amd64,arm64}.deb` / `.rpm` | Linux packages |
+| `breuk-linux-x86_64.tar.gz` | Linux x86_64 |
+| `breuk-mac-arm64.tar.gz` | macOS Apple Silicon |
+| `breuk-windows-x86_64.zip` | Windows x86_64 |
 | `checksums.txt` | SHA-256 of every artifact |
 
-Verify integrity with `sha256sum -c` against `checksums.txt`.
+Verify integrity with `sha256sum -c` against `checksums.txt`, then place the binary anywhere on your `PATH`.
 
 ## Getting started
+
+One command, identical on every platform:
 
 ```sh
 breuk
 ```
 
-On first run, Breuk Agent walks you through signing in with your Breuk account.
+The first time, the terminal prints a link and a code before anything else opens. Open the link in your browser, confirm the code matches, and this machine is authorized — then the Breuk Agent window opens. You only sign in once; every later `breuk` goes straight to the window.
+
+To sign in without starting the app — or to sign in again after revoking a session:
+
+```sh
+breuk login
+breuk logout
+```
+
+Running Breuk Agent requires a Breuk account with an active subscription.
 
 ## License
 

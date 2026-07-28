@@ -37,16 +37,37 @@ fi
 
 filename="$APP-$os-$arch.tar.gz"
 
-
-case "$filename" in
-    *"-linux-"*)
-        [[ "$arch" == "x86_64" || "$arch" == "arm64" || "$arch" == "i386" ]] || exit 1
+# Cada release publica exactamente tres archives: linux-x86_64, mac-arm64 y
+# windows-x86_64 (I-30). Las combinaciones que no se publican se rechazan
+# acá, nombrando el motivo: antes se aceptaban y el fallo aparecía recién
+# como un 404 de GitHub, que no le dice nada al usuario.
+case "$os" in
+    linux)
+        if [[ "$arch" != "x86_64" ]]; then
+            print_message error "Arquitectura no soportada en Linux: $arch"
+            print_message info "Hoy solo se publica Linux x86_64. Escribinos en breuklegal.com si necesitás $arch."
+            exit 1
+        fi
     ;;
-    *"-mac-"*)
-        [[ "$arch" == "x86_64" || "$arch" == "arm64" ]] || exit 1
+    mac)
+        # Los binarios de Mac se compilan en runners Apple Silicon, así que
+        # el único archive publicado es arm64. Un Mac Intel no puede
+        # ejecutarlo: falla acá, con el motivo, en vez de bajar 10 MB que no
+        # van a correr.
+        if [[ "$arch" != "arm64" ]]; then
+            print_message error "Mac con procesador Intel ($arch) todavía no está soportado."
+            print_message info "Breuk Agent se publica solo para Apple Silicon (M1 o posterior)."
+            exit 1
+        fi
+    ;;
+    mingw*|msys*|cygwin*)
+        print_message error "Este script es para Linux y macOS."
+        print_message info "En Windows, abrí PowerShell y ejecutá:"
+        print_message info "  irm https://breuklegal.com/install.ps1 | iex"
+        exit 1
     ;;
     *)
-        print_message error "Unsupported OS/Arch: $os/$arch"
+        print_message error "Sistema no soportado: $os/$arch"
         exit 1
     ;;
 esac
@@ -112,7 +133,12 @@ checksums_url="https://github.com/$REPO/releases/download/v${specific_version}/c
 
 check_version() {
     if command -v breuk >/dev/null 2>&1; then
-        installed_version=$(breuk version 2>/dev/null | awk '{print $NF}' || true)
+        # `breuk version` nunca existió como subcomando — la versión sale por
+        # el flag, y su salida es "0.1.21 (skills 2026-07-27)", así que el
+        # campo que interesa es el primero, no el último (I-30). Con el
+        # comando viejo cobra fallaba, el 2>/dev/null se comía el error y la
+        # variable quedaba vacía: el atajo "ya instalado" nunca disparaba.
+        installed_version=$(breuk --version 2>/dev/null | awk '{print $1}' || true)
 
         if [[ -n "$installed_version" && "$installed_version" == "$specific_version" ]]; then
             print_message info "Version ${YELLOW}$specific_version${GREEN} already installed"
