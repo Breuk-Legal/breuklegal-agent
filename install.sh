@@ -37,10 +37,10 @@ fi
 
 filename="$APP-$os-$arch.tar.gz"
 
-# Cada release publica exactamente tres archives: linux-x86_64, mac-arm64 y
-# windows-x86_64 (I-30). Las combinaciones que no se publican se rechazan
-# acá, nombrando el motivo: antes se aceptaban y el fallo aparecía recién
-# como un 404 de GitHub, que no le dice nada al usuario.
+# Cada release publica dos archives: linux-x86_64 y windows-x86_64 (I-30). Las
+# combinaciones que no se publican se rechazan acá, nombrando el motivo: antes se
+# aceptaban y el fallo aparecía recién como un 404 de GitHub, que no le dice nada
+# al usuario.
 case "$os" in
     linux)
         if [[ "$arch" != "x86_64" ]]; then
@@ -50,15 +50,12 @@ case "$os" in
         fi
     ;;
     mac)
-        # Los binarios de Mac se compilan en runners Apple Silicon, así que
-        # el único archive publicado es arm64. Un Mac Intel no puede
-        # ejecutarlo: falla acá, con el motivo, en vez de bajar 10 MB que no
-        # van a correr.
-        if [[ "$arch" != "arm64" ]]; then
-            print_message error "Mac con procesador Intel ($arch) todavía no está soportado."
-            print_message info "Breuk Agent se publica solo para Apple Silicon (M1 o posterior)."
-            exit 1
-        fi
+        # Un binario de Mac solo se puede compilar en un Mac, y no hay ninguno
+        # entre las máquinas de compilación. Se rechaza acá, con el motivo, en vez
+        # de dejar que la descarga muera en un 404 que no explica nada.
+        print_message error "macOS todavía no está soportado."
+        print_message info "Breuk Agent se publica para Linux y Windows. Escribinos en breuklegal.com si lo necesitás en Mac: saber cuántos lo piden es lo que mueve la fecha."
+        exit 1
     ;;
     mingw*|msys*|cygwin*)
         print_message error "Este script es para Linux y macOS."
