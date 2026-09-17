@@ -1,257 +1,216 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APP=breuk
+
+# Breuk Agent installer.
+#
+# Downloads the published desktop application, verifies it against the checksum
+# the delivery publishes beside it, places it in the user's home and registers
+# it with the desktop so it shows up in the applications menu.
+#
+# No administrator privileges are needed and nothing is written outside $HOME.
+
+APP=breuk-agent
 REPO=Breuk-Legal/breuklegal-agent
+IMAGE=Breuk-Agent.AppImage
+
+# The name never carries a version, on purpose: the application replaces this
+# file in place when it updates itself, and the launcher, the menu entry and the
+# icon all keep pointing at the same path.
+INSTALL_DIR=$HOME/.local/bin
+DESKTOP_DIR=$HOME/.local/share/applications
+ICON_ROOT=$HOME/.local/share/icons/hicolor
+TARGET="$INSTALL_DIR/$IMAGE"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 ORANGE='\033[38;2;255;140;0m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 print_message() {
     local level=$1
     local message=$2
     local color=""
-
     case $level in
         info) color="${GREEN}" ;;
         warning) color="${YELLOW}" ;;
         error) color="${RED}" ;;
     esac
-
     echo -e "${color}${message}${NC}"
 }
 
 requested_version=${VERSION:-}
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
-if [[ "$os" == "darwin" ]]; then
-    os="mac"
-fi
 arch=$(uname -m)
 
-if [[ "$arch" == "aarch64" ]]; then
-  arch="arm64"
-fi
-
-filename="$APP-$os-$arch.tar.gz"
-
-# Cada release publica dos archives: linux-x86_64 y windows-x86_64 (I-30). Las
-# combinaciones que no se publican se rechazan acá, nombrando el motivo: antes se
-# aceptaban y el fallo aparecía recién como un 404 de GitHub, que no le dice nada
-# al usuario.
+# Only Linux x86_64 is published today. Anything else is refused here, by name,
+# rather than left to die as a 404 that explains nothing.
 case "$os" in
     linux)
         if [[ "$arch" != "x86_64" ]]; then
-            print_message error "Arquitectura no soportada en Linux: $arch"
-            print_message info "Hoy solo se publica Linux x86_64. Escribinos en breuklegal.com si necesitás $arch."
+            print_message error "Breuk Agent is not published for Linux $arch yet."
+            print_message info "Only Linux x86_64 is available today. Write to us at breuklegal.com if you need $arch — knowing how many people ask is what moves the date."
             exit 1
         fi
     ;;
-    mac)
-        # Un binario de Mac solo se puede compilar en un Mac, y no hay ninguno
-        # entre las máquinas de compilación. Se rechaza acá, con el motivo, en vez
-        # de dejar que la descarga muera en un 404 que no explica nada.
-        print_message error "macOS todavía no está soportado."
-        print_message info "Breuk Agent se publica para Linux y Windows. Escribinos en breuklegal.com si lo necesitás en Mac: saber cuántos lo piden es lo que mueve la fecha."
+    darwin)
+        print_message error "Breuk Agent is not published for macOS yet."
+        print_message info "It is coming. Write to us at breuklegal.com if you need it — knowing how many people ask is what moves the date."
         exit 1
     ;;
     mingw*|msys*|cygwin*)
-        print_message error "Este script es para Linux y macOS."
-        print_message info "En Windows, abrí PowerShell y ejecutá:"
-        print_message info "  irm https://breuklegal.com/install.ps1 | iex"
+        print_message error "Breuk Agent is not published for Windows yet."
+        print_message info "It is coming. Write to us at breuklegal.com if you need it."
         exit 1
     ;;
     *)
-        print_message error "Sistema no soportado: $os/$arch"
+        print_message error "Unsupported system: $os/$arch"
         exit 1
     ;;
 esac
 
-# Desde I-4, breuk es una app de escritorio Wails, no un binario Go puro:
-# necesita WebKitGTK instalado en el sistema para arrancar (el TUI de antes
-# no tenía esta dependencia). Sin esto el binario se descarga bien pero
-# crashea al primer breuk que el usuario corra — mejor fallar acá, con
-# instrucciones, que dejar que eso pase (I-4 T13).
-if [[ "$os" == "linux" ]]; then
-    # ldconfig vive en /sbin, que no siempre está en el PATH de un usuario sin
-    # privilegios. Buscarlo ahí a mano evita el falso negativo que bloquearía
-    # la instalación a alguien que sí tiene WebKitGTK.
-    ldconfig_bin=$(command -v ldconfig || true)
-    if [[ -z "$ldconfig_bin" ]]; then
-        for candidate in /sbin/ldconfig /usr/sbin/ldconfig; do
-            if [[ -x "$candidate" ]]; then
-                ldconfig_bin="$candidate"
-                break
-            fi
-        done
-    fi
-
-    webkit_libs=""
-    if [[ -n "$ldconfig_bin" ]]; then
-        webkit_libs=$("$ldconfig_bin" -p 2>/dev/null || true)
-    fi
-
-    # Ante la duda (sin ldconfig, o con la caché ilegible) se avisa y se sigue:
-    # un falso negativo acá le negaría la instalación a alguien que la tiene.
-    # Solo se aborta cuando se pudo comprobar que la librería falta de verdad.
-    if [[ -z "$webkit_libs" ]]; then
-        print_message warning "No se pudo verificar WebKitGTK en este sistema."
-        print_message info "Si breuk no arranca, instalá libwebkit2gtk-4.1 con tu gestor de paquetes."
-    elif ! grep -qi "libwebkit2gtk-4\.1\.so" <<<"$webkit_libs"; then
-        print_message error "Falta WebKitGTK, necesario para ejecutar breuk."
-        print_message info "Instalalo con el gestor de paquetes de tu distro:"
-        print_message info "  Debian/Ubuntu:  sudo apt install libwebkit2gtk-4.1-0"
-        print_message info "  Fedora:         sudo dnf install webkit2gtk4.1"
-        print_message info "  Arch:           sudo pacman -S webkit2gtk-4.1"
-        exit 1
-    fi
+# The delivery ships its own runtime, so there is no system webview or toolkit
+# to check for. It does need FUSE to mount itself; without it the file downloads
+# fine and then refuses to start, which is the failure worth catching early.
+if [[ ! -e /dev/fuse ]]; then
+    print_message warning "FUSE does not appear to be available on this system."
+    print_message info "If Breuk Agent does not start, install it with your package manager:"
+    print_message info "  Debian/Ubuntu:  sudo apt install libfuse2"
+    print_message info "  Fedora:         sudo dnf install fuse-libs"
+    print_message info "  Arch:           sudo pacman -S fuse2"
 fi
 
-INSTALL_DIR=$HOME/.breuk/bin
-mkdir -p "$INSTALL_DIR"
+# Verification is not optional: this downloads an executable from the internet.
+if ! command -v openssl >/dev/null 2>&1; then
+    print_message error "openssl is required to verify the download and was not found."
+    print_message info "Install it with your package manager and run this again."
+    exit 1
+fi
 
 if [ -z "$requested_version" ]; then
-    # /releases/latest ignora prereleases; mientras el canal sea prerelease se
-    # toma la release más reciente del listado completo.
-    specific_version=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=1" | awk -F'"' '/"tag_name": "/ {gsub(/^v/, "", $4); print $4; exit}')
+    # Deliveries are published as prereleases, so /releases/latest does not see
+    # them. The full listing comes back newest first; the first entry whose tag
+    # is a version is the one to install. The filter matters: the rolling
+    # development copy lives under a tag that is not a version, and it is the
+    # newest thing in the repository right after every publication.
+    specific_version=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=20" \
+        | awk -F'"' '/"tag_name": "v[0-9]/ {gsub(/^v/, "", $4); print $4; exit}')
 
     if [[ -z "$specific_version" ]]; then
-        print_message error "Failed to fetch version information"
+        print_message error "No published version was found."
+        print_message info "See https://github.com/$REPO/releases — if it is empty, the first delivery has not been published yet."
         exit 1
     fi
 else
     specific_version=$requested_version
 fi
 
-url="https://github.com/$REPO/releases/download/v${specific_version}/$filename"
-checksums_url="https://github.com/$REPO/releases/download/v${specific_version}/checksums.txt"
+base="https://github.com/$REPO/releases/download/v${specific_version}"
 
-check_version() {
-    if command -v breuk >/dev/null 2>&1; then
-        # `breuk version` nunca existió como subcomando — la versión sale por
-        # el flag, y su salida es "0.1.21 (skills 2026-07-27)", así que el
-        # campo que interesa es el primero, no el último (I-30). Con el
-        # comando viejo cobra fallaba, el 2>/dev/null se comía el error y la
-        # variable quedaba vacía: el atajo "ya instalado" nunca disparaba.
-        installed_version=$(breuk --version 2>/dev/null | awk '{print $1}' || true)
-
-        if [[ -n "$installed_version" && "$installed_version" == "$specific_version" ]]; then
-            print_message info "Version ${YELLOW}$specific_version${GREEN} already installed"
-            exit 0
-        elif [[ -n "$installed_version" ]]; then
-            print_message info "Installed version: ${YELLOW}$installed_version."
-        fi
+if [[ -x "$TARGET" ]]; then
+    # The version is read out of the installed file itself, which takes a few
+    # milliseconds and stays true after the application updates itself. It is
+    # NOT obtained by running it: a packaged Electron application does not
+    # answer --version, it opens a window — so asking would launch the product
+    # in the middle of an install and wait for someone to close it.
+    probe=$(mktemp -d)
+    installed_version=$( (cd "$probe" && "$TARGET" --appimage-extract '*.desktop' >/dev/null 2>&1 \
+        && awk -F= '/^X-AppImage-Version=/ {print $2; exit}' "$probe"/squashfs-root/*.desktop) 2>/dev/null || true)
+    rm -rf "$probe"
+    if [[ -n "$installed_version" && "$installed_version" == "$specific_version" ]]; then
+        print_message info "Version ${YELLOW}$specific_version${GREEN} is already installed"
+        exit 0
+    elif [[ -n "$installed_version" ]]; then
+        print_message info "Installed version: ${YELLOW}$installed_version${GREEN}"
     fi
-}
+fi
 
-download_and_install() {
-    print_message info "Downloading ${ORANGE}breuk ${GREEN}version: ${YELLOW}$specific_version ${GREEN}..."
-    tmpdir=$(mktemp -d)
-    trap 'rm -rf "$tmpdir"' EXIT
-    cd "$tmpdir"
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
 
-    curl -# -fL -o "$filename" "$url"
-    curl -fsSL -o checksums.txt "$checksums_url"
+print_message info "Downloading ${ORANGE}Breuk Agent ${GREEN}version ${YELLOW}$specific_version${GREEN} ..."
+curl -# -fL -o "$tmpdir/$IMAGE" "$base/$IMAGE"
 
-    expected=$(awk -v f="$filename" '$2 == f {print $1}' checksums.txt)
-    if [[ -z "$expected" ]]; then
-        print_message error "Checksum for $filename not found in checksums.txt"
-        exit 1
-    fi
-
-    if command -v sha256sum >/dev/null 2>&1; then
-        actual=$(sha256sum "$filename" | awk '{print $1}')
-    else
-        actual=$(shasum -a 256 "$filename" | awk '{print $1}')
-    fi
-
-    if [[ "$actual" != "$expected" ]]; then
-        print_message error "Checksum verification failed for $filename"
-        print_message error "  expected: $expected"
-        print_message error "  actual:   $actual"
-        exit 1
-    fi
-    print_message info "Checksum OK"
-
-    tar xzf "$filename"
-    mv breuk "$INSTALL_DIR"
-    cd - >/dev/null
-}
-
-check_version
-download_and_install
-
-
-add_to_path() {
-    local config_file=$1
-    local command=$2
-
-    if [[ -w $config_file ]]; then
-        echo -e "\n# breuk" >> "$config_file"
-        echo "$command" >> "$config_file"
-        print_message info "Successfully added ${ORANGE}breuk ${GREEN}to \$PATH in $config_file"
-    else
-        print_message warning "Manually add the directory to $config_file (or similar):"
-        print_message info "  $command"
-    fi
-}
-
-XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
-
-current_shell=$(basename "$SHELL")
-case $current_shell in
-    fish)
-        config_files="$HOME/.config/fish/config.fish"
-    ;;
-    zsh)
-        config_files="$HOME/.zshrc $HOME/.zshenv $XDG_CONFIG_HOME/zsh/.zshrc $XDG_CONFIG_HOME/zsh/.zshenv"
-    ;;
-    bash)
-        config_files="$HOME/.bashrc $HOME/.bash_profile $HOME/.profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile"
-    ;;
-    ash)
-        config_files="$HOME/.ashrc $HOME/.profile /etc/profile"
-    ;;
-    sh)
-        config_files="$HOME/.ashrc $HOME/.profile /etc/profile"
-    ;;
-    *)
-        # Default case if none of the above matches
-        config_files="$HOME/.bashrc $HOME/.bash_profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile"
-    ;;
-esac
-
-config_file=""
-for file in $config_files; do
-    if [[ -f $file ]]; then
-        config_file=$file
-        break
-    fi
-done
-
-if [[ -z $config_file ]]; then
-    print_message error "No config file found for $current_shell. Checked files: ${config_files[@]}"
+# The checksum travels in the update metadata the delivery publishes beside the
+# image — the same file the installed application reads to find newer versions,
+# so there is one published statement of what this release contains rather than
+# two that can disagree. It holds a base64 SHA-512.
+if ! curl -fsSL -o "$tmpdir/metadata.yml" "$base/latest-linux.yml"; then
+    print_message error "The delivery is missing its update metadata, so the download cannot be verified."
     exit 1
 fi
 
-if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    case $current_shell in
-        fish)
-            add_to_path "$config_file" "fish_add_path $INSTALL_DIR"
-        ;;
-        zsh|bash|ash|sh)
-            add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-        ;;
-        *)
-            print_message warning "Manually add the directory to $config_file (or similar):"
-            print_message info "  export PATH=$INSTALL_DIR:\$PATH"
-        ;;
-    esac
+expected=$(awk '/^sha512:/ {print $2; exit}' "$tmpdir/metadata.yml")
+if [[ -z "$expected" ]]; then
+    print_message error "No checksum was found in the delivery's update metadata."
+    exit 1
 fi
 
-if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
-    echo "$INSTALL_DIR" >> $GITHUB_PATH
-    print_message info "Added $INSTALL_DIR to \$GITHUB_PATH"
+actual=$(openssl dgst -sha512 -binary "$tmpdir/$IMAGE" | openssl base64 -A)
+if [[ "$actual" != "$expected" ]]; then
+    print_message error "Checksum verification failed for $IMAGE"
+    print_message error "  expected: $expected"
+    print_message error "  actual:   $actual"
+    exit 1
 fi
+print_message info "Checksum OK"
+
+chmod +x "$tmpdir/$IMAGE"
+mkdir -p "$INSTALL_DIR" "$DESKTOP_DIR"
+mv -f "$tmpdir/$IMAGE" "$TARGET"
+
+# The icon is drawn inside the image. Pulling it out is what makes the menu
+# entry and the taskbar button show the product rather than a blank square.
+#
+# Nothing here may abort the install: the application is already in place and
+# usable, and a missing icon is cosmetic. The path is deliberate — at the root
+# of the image the icon is a symlink into usr/share, so extracting only the
+# root leaves a link pointing at nothing.
+icon_line="Icon=$TARGET"
+if (cd "$tmpdir" && "$TARGET" --appimage-extract 'usr/share/icons/hicolor/*/apps/*.png' >/dev/null 2>&1); then
+    # -L resolves links and -type f then keeps only what really exists.
+    icon=$(find -L "$tmpdir/squashfs-root/usr/share/icons/hicolor" -name '*.png' -type f -print -quit 2>/dev/null || true)
+    if [[ -n "$icon" ]]; then
+        # Installed under the size it actually is, which is where the desktop
+        # looks for it by name.
+        size=$(basename "$(dirname "$(dirname "$icon")")")
+        if mkdir -p "$ICON_ROOT/$size/apps" && cp -f "$icon" "$ICON_ROOT/$size/apps/$APP.png"; then
+            icon_line="Icon=$APP"
+        fi
+    fi
+fi
+
+# Written here rather than taken from the copy inside the image: that one
+# carries an Exec that only works from inside the mounted image, and a comment
+# describing the shell's internals rather than what the product is. The window
+# class is copied from it, though — it has to match what the running window
+# reports or the taskbar shows a second, iconless entry.
+cat > "$DESKTOP_DIR/$APP.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Breuk Agent
+Comment=AI legal agent by Breuk Legal
+Exec=$TARGET %U
+$icon_line
+Terminal=false
+Categories=Office;
+StartupWMClass=breuk-agent
+DESKTOP
+
+# Without this the entry can take until the next login to appear in the menu.
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+fi
+
+print_message info "Installed ${ORANGE}Breuk Agent ${GREEN}to ${YELLOW}$TARGET${NC}"
+print_message info "Open it from your applications menu, or run:"
+print_message info "  $TARGET"
+
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    print_message warning "$INSTALL_DIR is not on your \$PATH."
+    print_message info "The applications menu entry works regardless; add it to your shell profile if you also want to start it from a terminal:"
+    print_message info "  export PATH=\"$INSTALL_DIR:\$PATH\""
+fi
+
+print_message info "Breuk Agent updates itself: it checks for new versions while open and applies them when you close the window."

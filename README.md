@@ -8,23 +8,23 @@
 
 # Breuk Agent
 
-**The AI legal agent for your terminal, by [Breuk Legal](https://breuklegal.com).**
+**The AI legal agent by [Breuk Legal](https://breuklegal.com).**
 
-[![Latest release](assets/badge-release.svg)](https://github.com/Breuk-Legal/breuklegal-agent/releases/latest)
-[![Platforms](assets/badge-platforms.svg)](#manual-download)
+[![Latest release](assets/badge-release.svg)](https://github.com/Breuk-Legal/breuklegal-agent/releases)
+[![Platforms](assets/badge-platforms.svg)](#requirements)
 [![License](assets/badge-license.svg)](LICENSE.md)
 
 </div>
 
 ---
 
-Breuk Agent reasons over legal tasks and workflows and acts on your behalf — reading and drafting documents, running commands and connecting to your team's tools — all without leaving the terminal.
+Breuk Agent reasons over legal tasks and workflows and acts on your behalf — reading and drafting documents, running commands and connecting to your team's tools.
 
-This repository distributes the official Breuk Agent binaries: [releases](https://github.com/Breuk-Legal/breuklegal-agent/releases), installation and the [changelog](CHANGELOG.md). The product's source code is proprietary and does not live here. Downloading is free; running Breuk Agent requires a Breuk account with an active subscription.
+This repository distributes the official Breuk Agent application: [releases](https://github.com/Breuk-Legal/breuklegal-agent/releases) and installation. The product's source code is proprietary and does not live here. Downloading is free; running Breuk Agent requires a Breuk account with an active subscription.
 
 ## Installation
 
-Open a terminal and run one command. No administrator privileges required — the installer verifies the SHA-256 checksum, places the binary in your home directory and adds it to your `PATH`.
+Open a terminal and run one command. No administrator privileges are required and nothing is written outside your home directory — the installer verifies the download against the checksum published with it, places the application in `~/.local/bin` and adds it to your applications menu.
 
 ### Linux
 
@@ -32,75 +32,66 @@ Open a terminal and run one command. No administrator privileges required — th
 curl -fsSL https://breuklegal.com/install.sh | bash
 ```
 
-### macOS
+Then open **Breuk Agent** from your applications menu.
 
-```sh
-curl -fsSL https://breuklegal.com/install.sh | bash
-```
+### macOS and Windows
 
-### Windows
-
-In PowerShell:
-
-```powershell
-irm https://breuklegal.com/install.ps1 | iex
-```
+Not published yet. Both are coming; write to us at [breuklegal.com](https://breuklegal.com) if you need one of them — knowing how many people ask is what moves the date.
 
 ### Requirements
 
 | Platform | Supported | Also needed |
 |---|---|---|
-| Linux | x86_64 | WebKitGTK (`libwebkit2gtk-4.1`) — the installer checks for it and tells you how to install it |
-| macOS | Apple Silicon (M1 or later) | Nothing; the system webview is built in |
-| Windows | 10 / 11, x86_64 | WebView2 Runtime — preinstalled on Windows 11 and on any machine with an up-to-date Edge |
+| Linux | x86_64 | FUSE (`libfuse2`) — the installer checks for it and tells you how to install it |
+| macOS | Not yet | — |
+| Windows | Not yet | — |
 
-Breuk Agent is a desktop application, so it needs your system's webview. Intel Macs, and arm64 on Linux and Windows, are not published yet.
+Breuk Agent ships everything it needs to draw its own window, so there is no system webview or toolkit to install.
 
 ### A specific version
 
 ```sh
-curl -fsSL https://breuklegal.com/install.sh | VERSION=0.1.21 bash
-```
-
-```powershell
-$env:VERSION = "0.1.21"; irm https://breuklegal.com/install.ps1 | iex
+curl -fsSL https://breuklegal.com/install.sh | VERSION=1.0.0-beta.1 bash
 ```
 
 ### Manual download
 
 Every release publishes:
 
-| Artifact | Platform |
+| Artifact | What it is |
 |---|---|
-| `breuk-linux-x86_64.tar.gz` | Linux x86_64 |
-| `breuk-mac-arm64.tar.gz` | macOS Apple Silicon |
-| `breuk-windows-x86_64.zip` | Windows x86_64 |
-| `checksums.txt` | SHA-256 of every artifact |
+| `Breuk-Agent.AppImage` | The application, for Linux x86_64 |
+| `latest-linux.yml` | The release's version and the SHA-512 of the application |
 
-Verify integrity with `sha256sum -c` against `checksums.txt`, then place the binary anywhere on your `PATH`.
+Download both, check the file against the `sha512` field in the metadata, then make it executable and run it:
+
+```sh
+openssl dgst -sha512 -binary Breuk-Agent.AppImage | openssl base64 -A
+chmod +x Breuk-Agent.AppImage
+./Breuk-Agent.AppImage
+```
+
+The file name carries no version on purpose: Breuk Agent replaces it in place when it updates itself, so your launcher and your menu entry keep working.
 
 ## Getting started
 
-One command, identical on every platform:
+Open **Breuk Agent** from your applications menu, or run it from where the installer left it:
 
 ```sh
-breuk
+~/.local/bin/Breuk-Agent.AppImage
 ```
 
-The first time, the terminal prints a link and a code before anything else opens. Open the link in your browser, confirm the code matches, and this machine is authorized — then the Breuk Agent window opens. You only sign in once; every later `breuk` goes straight to the window.
-
-To sign in without starting the app — or to sign in again after revoking a session:
-
-```sh
-breuk login
-breuk logout
-```
+The first time, the window shows a link and a code before anything else. Open the link in your browser, confirm the code matches, and this machine is authorized. You only sign in once.
 
 Running Breuk Agent requires a Breuk account with an active subscription.
 
+## Updates
+
+Breuk Agent keeps itself up to date. It checks for a new version when it starts and every few hours while it is open, downloads it in the background, and applies it when you close the window. Nothing interrupts you and nothing asks you anything.
+
 ## License
 
-The binaries distributed here are proprietary software. See [LICENSE.md](LICENSE.md).
+The application distributed here is proprietary software. See [LICENSE.md](LICENSE.md).
 
 ## Support
 
