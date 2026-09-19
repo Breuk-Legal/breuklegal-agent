@@ -94,8 +94,20 @@ if [ -z "$requested_version" ]; then
     # is a version is the one to install. The filter matters: the rolling
     # development copy lives under a tag that is not a version, and it is the
     # newest thing in the repository right after every publication.
+    #
+    # awk reads the whole listing rather than stopping at the first match, and
+    # that is not waste. Stopping closes the pipe while curl is still writing;
+    # curl then fails with "Failure writing output to destination", pipefail
+    # makes that the pipeline's status, and set -e kills the script — one line
+    # after it had already resolved the version correctly.
+    #
+    # It is a race, which is what makes it dangerous: whether curl has finished
+    # writing before awk leaves depends on the listing's size against the pipe
+    # buffer and on how fast the network delivered it. Measured on 2026-09-18 it
+    # passed on the machine that wrote it and failed every time inside a
+    # container. The user's machine is the one that decides.
     specific_version=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=20" \
-        | awk -F'"' '/"tag_name": "v[0-9]/ {gsub(/^v/, "", $4); print $4; exit}')
+        | awk -F'"' '/"tag_name": "v[0-9]/ && !found {gsub(/^v/, "", $4); print $4; found = 1}')
 
     if [[ -z "$specific_version" ]]; then
         print_message error "No published version was found."
